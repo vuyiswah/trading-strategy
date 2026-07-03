@@ -1,0 +1,516 @@
+// ============================================================================
+// PROFESSIONAL MULTI-CONFLUENCE TRADING STRATEGY v2.0
+// Compatible: TradingView Strategy Tester | Pine Script v6
+// Markets: Forex, Crypto, Indices, Stocks
+// Timeframes: 5m, 15m, 1H, 4H, Daily
+// ============================================================================
+
+//@version=6
+strategy(
+     title          = "Pro Multi-Confluence Strategy v2.0",
+     shorttitle     = "PMCS v2.0",
+     overlay        = true,
+     pyramiding     = 0,
+     default_qty_type  = strategy.percent_of_equity,
+     default_qty_value = 1,
+     initial_capital   = 10000,
+     commission_type   = strategy.commission.percent,
+     commission_value  = 0.05,
+     slippage          = 2,
+     calc_on_every_tick = false,
+     process_orders_on_close = false
+ )
+
+// ============================================================================
+// ▸ SECTION 1: INPUTS
+// ============================================================================
+
+// ── Strategy Settings ───────────────────────────────────────────────────────
+var GRP_STRAT = "⚙️ Strategy Settings"
+i_tradeDir      = input.string("Both", "Trade Direction", options=["Long Only","Short Only","Both"], group=GRP_STRAT)
+i_maxOpenTrades = input.int(1,    "Max Open Trades",          minval=1, maxval=5,   group=GRP_STRAT)
+i_commission    = input.float(0.05,"Commission (%)",          minval=0, step=0.01,  group=GRP_STRAT)
+i_slippage      = input.int(2,    "Slippage (ticks)",         minval=0,             group=GRP_STRAT)
+
+// ── Risk Management ─────────────────────────────────────────────────────────
+var GRP_RISK = "🛡️ Risk Management"
+i_sizingMode    = input.string("Equity %", "Position Sizing", options=["Fixed Lots","Equity %","Cash Risk","Fixed Cash"], group=GRP_RISK)
+i_riskPct       = input.float(1.0,  "Risk per Trade (%)",    minval=0.1, maxval=10, step=0.1, group=GRP_RISK)
+i_fixedLots     = input.float(0.1,  "Fixed Lot Size",        minval=0.01, step=0.01, group=GRP_RISK)
+i_fixedCash     = input.float(100,  "Fixed Cash Risk ($)",   minval=1,   group=GRP_RISK)
+i_atrMult_SL    = input.float(1.5,  "ATR Multiplier — Stop Loss",    minval=0.5, step=0.1, group=GRP_RISK)
+i_rrRatio       = input.float(2.0,  "Risk:Reward Ratio",     minval=0.5, step=0.1, group=GRP_RISK)
+i_partialTP_en  = input.bool(true,  "Enable Partial Take Profit",    group=GRP_RISK)
+i_partialTP_pct = input.float(50.0, "Partial TP — Close % of Position", minval=10, maxval=90, step=5, group=GRP_RISK)
+i_partialTP_r   = input.float(1.0,  "Partial TP — at R multiple",   minval=0.5, step=0.1, group=GRP_RISK)
+i_be_en         = input.bool(true,  "Enable Break-Even Stop",        group=GRP_RISK)
+i_be_r          = input.float(1.0,  "Move to B/E after R multiple",  minval=0.5, step=0.1, group=GRP_RISK)
+i_trail_en      = input.bool(false, "Enable Trailing Stop",          group=GRP_RISK)
+i_trail_atr     = input.float(1.0,  "Trailing Stop ATR Multiplier",  minval=0.1, step=0.1, group=GRP_RISK)
+i_maxDailyLoss  = input.float(3.0,  "Max Daily Loss (% of Equity)",  minval=0.1, step=0.1, group=GRP_RISK)
+i_maxConsecLoss = input.int(3,      "Max Consecutive Losses",        minval=1, maxval=20,  group=GRP_RISK)
+i_minRR         = input.float(1.5,  "Minimum R:R to Enter Trade",    minval=0.1, step=0.1, group=GRP_RISK)
+
+// ── Trend & EMA Settings ────────────────────────────────────────────────────
+var GRP_TREND = "📈 Trend Filters"
+i_ema_fast      = input.int(21,   "Fast EMA Period",    minval=1,   group=GRP_TREND)
+i_ema_mid       = input.int(50,   "Mid EMA Period",     minval=1,   group=GRP_TREND)
+i_ema_slow      = input.int(200,  "Slow EMA Period",    minval=1,   group=GRP_TREND)
+i_adx_en        = input.bool(true,  "Enable ADX Filter",            group=GRP_TREND)
+i_adx_len       = input.int(14,   "ADX Length",         minval=1,   group=GRP_TREND)
+i_adx_min       = input.float(20, "Min ADX (Trend Strength)",       group=GRP_TREND)
+i_htf_en        = input.bool(true, "Enable Higher Timeframe Filter", group=GRP_TREND)
+i_htf_tf        = input.timeframe("D","HTF Timeframe",               group=GRP_TREND)
+i_htf_ema       = input.int(50,   "HTF EMA Period",     minval=1,   group=GRP_TREND)
+
+// ── Entry Filters ───────────────────────────────────────────────────────────
+var GRP_ENTRY = "🎯 Entry Filters"
+i_rsi_en        = input.bool(true,  "Enable RSI Filter",             group=GRP_ENTRY)
+i_rsi_len       = input.int(14,   "RSI Length",          minval=1,   group=GRP_ENTRY)
+i_rsi_ob        = input.float(70, "RSI Overbought",                  group=GRP_ENTRY)
+i_rsi_os        = input.float(30, "RSI Oversold",                    group=GRP_ENTRY)
+i_macd_en       = input.bool(true,  "Enable MACD Filter",            group=GRP_ENTRY)
+i_macd_fast     = input.int(12,   "MACD Fast",           minval=1,   group=GRP_ENTRY)
+i_macd_slow     = input.int(26,   "MACD Slow",           minval=1,   group=GRP_ENTRY)
+i_macd_sig      = input.int(9,    "MACD Signal",         minval=1,   group=GRP_ENTRY)
+i_vwap_en       = input.bool(true,  "Enable VWAP Filter",            group=GRP_ENTRY)
+i_vol_en        = input.bool(true,  "Enable Volume Filter",          group=GRP_ENTRY)
+i_vol_mult      = input.float(1.2, "Volume > X × SMA(20)",          group=GRP_ENTRY)
+i_atr_vol_en    = input.bool(true,  "Enable ATR Volatility Filter",  group=GRP_ENTRY)
+i_atr_len       = input.int(14,   "ATR Length",          minval=1,   group=GRP_ENTRY)
+i_atr_min_mult  = input.float(0.5, "Min ATR Multiplier (vs SMA)",   group=GRP_ENTRY)
+i_bos_en        = input.bool(true,  "Enable Break-of-Structure (BOS)",group=GRP_ENTRY)
+i_bos_len       = input.int(10,   "BOS Swing Length",    minval=2,   group=GRP_ENTRY)
+i_sr_en         = input.bool(true,  "Enable S/R Proximity Filter",   group=GRP_ENTRY)
+i_sr_len        = input.int(20,   "S/R Lookback",        minval=5,   group=GRP_ENTRY)
+i_sr_atr_dist   = input.float(0.5, "Max Distance to S/R (ATR)",     group=GRP_ENTRY)
+
+// ── Session Filter ──────────────────────────────────────────────────────────
+var GRP_SESSION = "🕐 Session & Timing"
+i_sess_en       = input.bool(false, "Enable Session Filter",         group=GRP_SESSION)
+i_sess_1        = input.session("0700-1600", "Session 1 (Exchange TZ)", group=GRP_SESSION)
+i_sess_2        = input.session("1300-2200", "Session 2 (Exchange TZ)", group=GRP_SESSION)
+i_time_exit_en  = input.bool(false, "Enable Time-Based Exit",        group=GRP_SESSION)
+i_time_exit_h   = input.int(23,   "Exit Hour (Exchange TZ)", minval=0, maxval=23, group=GRP_SESSION)
+i_time_exit_m   = input.int(0,    "Exit Minute",             minval=0, maxval=59, group=GRP_SESSION)
+
+// ── Exit Settings ───────────────────────────────────────────────────────────
+var GRP_EXIT = "🚪 Exit Settings"
+i_oppsig_exit   = input.bool(true,  "Exit on Opposite Signal",       group=GRP_EXIT)
+i_rev_exit      = input.bool(true,  "Exit on Trend Reversal",        group=GRP_EXIT)
+
+// ── Visualization ───────────────────────────────────────────────────────────
+var GRP_VIZ = "🎨 Visualization"
+i_show_ema      = input.bool(true,  "Show EMAs",                     group=GRP_VIZ)
+i_show_vwap     = input.bool(true,  "Show VWAP",                     group=GRP_VIZ)
+i_show_labels   = input.bool(true,  "Show Entry Labels",             group=GRP_VIZ)
+i_show_sltp     = input.bool(true,  "Show SL/TP Lines",              group=GRP_VIZ)
+i_show_dash     = input.bool(true,  "Show Dashboard",                group=GRP_VIZ)
+i_dash_pos      = input.string("Top Right","Dashboard Position", options=["Top Right","Top Left","Bottom Right","Bottom Left"], group=GRP_VIZ)
+
+// ── Alerts ──────────────────────────────────────────────────────────────────
+var GRP_ALERTS = "🔔 Alerts"
+i_alert_entry   = input.bool(true,  "Alert on Entry",                group=GRP_ALERTS)
+i_alert_exit    = input.bool(true,  "Alert on Exit",                 group=GRP_ALERTS)
+i_alert_sltp    = input.bool(true,  "Alert on SL/TP Hit",           group=GRP_ALERTS)
+i_webhook_msg   = input.bool(false, "Use Webhook-Compatible Format", group=GRP_ALERTS)
+
+// ============================================================================
+// ▸ SECTION 2: CORE CALCULATIONS
+// ============================================================================
+
+// ── ATR ─────────────────────────────────────────────────────────────────────
+atr = ta.atr(i_atr_len)
+atr_sma = ta.sma(atr, 50)
+
+// ── EMAs ─────────────────────────────────────────────────────────────────────
+ema_fast = ta.ema(close, i_ema_fast)
+ema_mid  = ta.ema(close, i_ema_mid)
+ema_slow = ta.ema(close, i_ema_slow)
+
+bull_ema_stack = ema_fast > ema_mid and ema_mid > ema_slow
+bear_ema_stack = ema_fast < ema_mid and ema_mid < ema_slow
+
+// ── VWAP ─────────────────────────────────────────────────────────────────────
+vwap_val = ta.vwap(hlc3)
+
+// ── RSI ──────────────────────────────────────────────────────────────────────
+rsi = ta.rsi(close, i_rsi_len)
+
+// ── MACD ─────────────────────────────────────────────────────────────────────
+[macd_line, macd_sig_line, macd_hist] = ta.macd(close, i_macd_fast, i_macd_slow, i_macd_sig)
+macd_bull = macd_line > macd_sig_line and macd_hist > 0
+macd_bear = macd_line < macd_sig_line and macd_hist < 0
+
+// ── ADX ──────────────────────────────────────────────────────────────────────
+adx_func(len) =>
+    up   = ta.change(high)
+    down = -ta.change(low)
+    plus_dm  = na(up)   ? na : (up > down and up > 0   ? up   : 0)
+    minus_dm = na(down) ? na : (down > up and down > 0 ? down : 0)
+    trur     = ta.rma(ta.tr, len)
+    plus_di  = fixnan(100 * ta.rma(plus_dm, len)  / trur)
+    minus_di = fixnan(100 * ta.rma(minus_dm, len) / trur)
+    dx       = 100 * math.abs(plus_di - minus_di) / (plus_di + minus_di)
+    [ta.rma(dx, len), plus_di, minus_di]
+
+[adx_val, adx_plus, adx_minus] = adx_func(i_adx_len)
+adx_trending = adx_val >= i_adx_min
+adx_bull     = adx_plus  > adx_minus
+adx_bear     = adx_minus > adx_plus
+
+// ── Higher Timeframe Trend ───────────────────────────────────────────────────
+htf_close = request.security(syminfo.tickerid, i_htf_tf, close, lookahead=barmerge.lookahead_off)
+htf_ema   = request.security(syminfo.tickerid, i_htf_tf, ta.ema(close, i_htf_ema), lookahead=barmerge.lookahead_off)
+htf_bull  = htf_close > htf_ema
+htf_bear  = htf_close < htf_ema
+
+// ── Volume ───────────────────────────────────────────────────────────────────
+vol_sma    = ta.sma(volume, 20)
+vol_strong = volume > vol_sma * i_vol_mult
+
+// ── ATR Volatility ───────────────────────────────────────────────────────────
+atr_ok = atr > atr_sma * i_atr_min_mult
+
+// ── Break of Structure ───────────────────────────────────────────────────────
+swing_high = ta.pivothigh(high, i_bos_len, i_bos_len)
+swing_low  = ta.pivotlow(low,   i_bos_len, i_bos_len)
+
+var float last_swing_high = na
+var float last_swing_low  = na
+
+if not na(swing_high)
+    last_swing_high := swing_high
+if not na(swing_low)
+    last_swing_low := swing_low
+
+bos_bull = not na(last_swing_high) and close > last_swing_high[i_bos_len]
+bos_bear = not na(last_swing_low)  and close < last_swing_low[i_bos_len]
+
+// ── Support & Resistance ─────────────────────────────────────────────────────
+sr_high = ta.highest(high, i_sr_len)
+sr_low  = ta.lowest(low,   i_sr_len)
+near_support    = math.abs(close - sr_low)  < atr * i_sr_atr_dist
+near_resistance = math.abs(close - sr_high) < atr * i_sr_atr_dist
+
+// ── Session Filter ───────────────────────────────────────────────────────────
+in_session = not i_sess_en or
+             (time(timeframe.period, i_sess_1) != 0 or time(timeframe.period, i_sess_2) != 0)
+
+// ── Trend State ──────────────────────────────────────────────────────────────
+trend_bull = bull_ema_stack and (not i_htf_en or htf_bull) and (not i_adx_en or (adx_trending and adx_bull))
+trend_bear = bear_ema_stack and (not i_htf_en or htf_bear) and (not i_adx_en or (adx_trending and adx_bear))
+
+// ============================================================================
+// ▸ SECTION 3: RISK STATE TRACKING
+// ============================================================================
+
+var int   consec_losses   = 0
+var float daily_loss_pct  = 0.0
+var int   daily_trade_day = na
+var float day_start_eq    = strategy.equity
+
+if dayofweek != dayofweek[1] or na(daily_trade_day)
+    daily_trade_day := dayofweek
+    day_start_eq    := strategy.equity
+    daily_loss_pct  := 0.0
+
+daily_loss_pct := day_start_eq > 0 ? (day_start_eq - strategy.equity) / day_start_eq * 100 : 0.0
+
+risk_ok = daily_loss_pct < i_maxDailyLoss and consec_losses < i_maxConsecLoss
+
+// ============================================================================
+// ▸ SECTION 4: POSITION SIZE CALCULATION
+// ============================================================================
+
+calc_qty(sl_dist) =>
+    sl_dist_safe = math.max(sl_dist, syminfo.mintick)
+    qty = switch i_sizingMode
+        "Fixed Lots"  => i_fixedLots
+        "Cash Risk"   => i_fixedCash / (sl_dist_safe / syminfo.mintick * syminfo.pointvalue)
+        "Fixed Cash"  => i_fixedCash / close
+        =>               (strategy.equity * i_riskPct / 100) /
+                         (sl_dist_safe / syminfo.mintick * syminfo.pointvalue)
+    math.max(qty, syminfo.mintick)
+
+// ============================================================================
+// ▸ SECTION 5: ENTRY CONDITIONS
+// ============================================================================
+
+rsi_long_ok  = not i_rsi_en  or (rsi > i_rsi_os and rsi < i_rsi_ob)
+rsi_short_ok = not i_rsi_en  or (rsi < i_rsi_ob and rsi > i_rsi_os)
+rsi_bull_bias = not i_rsi_en or rsi > 50
+rsi_bear_bias = not i_rsi_en or rsi < 50
+
+macd_long_ok  = not i_macd_en or macd_bull
+macd_short_ok = not i_macd_en or macd_bear
+
+vwap_long_ok  = not i_vwap_en or close > vwap_val
+vwap_short_ok = not i_vwap_en or close < vwap_val
+
+vol_ok        = not i_vol_en  or vol_strong
+atr_ok_f      = not i_atr_vol_en or atr_ok
+
+bos_long_ok   = not i_bos_en  or bos_bull
+bos_short_ok  = not i_bos_en  or bos_bear
+
+sr_long_ok    = not i_sr_en   or near_support
+sr_short_ok   = not i_sr_en   or near_resistance
+
+ema_cross_bull = ta.crossover(ema_fast,  ema_mid)
+ema_cross_bear = ta.crossunder(ema_fast, ema_mid)
+
+long_confluence =
+     trend_bull      and
+     rsi_bull_bias   and rsi_long_ok  and
+     macd_long_ok    and
+     vwap_long_ok    and
+     vol_ok          and
+     atr_ok_f        and
+     bos_long_ok     and
+     sr_long_ok      and
+     in_session
+
+short_confluence =
+     trend_bear       and
+     rsi_bear_bias    and rsi_short_ok and
+     macd_short_ok    and
+     vwap_short_ok    and
+     vol_ok           and
+     atr_ok_f         and
+     bos_short_ok     and
+     sr_short_ok      and
+     in_session
+
+can_long  = i_tradeDir != "Short Only"
+can_short = i_tradeDir != "Long Only"
+
+long_signal  = long_confluence  and can_long  and risk_ok and strategy.opentrades < i_maxOpenTrades
+short_signal = short_confluence and can_short and risk_ok and strategy.opentrades < i_maxOpenTrades
+
+// ============================================================================
+// ▸ SECTION 6: STOP LOSS, TAKE PROFIT & POSITION MANAGEMENT
+// ============================================================================
+
+var float entry_price  = na
+var float sl_price     = na
+var float tp1_price    = na
+var float tp2_price    = na
+var bool  partial_done = false
+var bool  be_done      = false
+var line  sl_line      = na
+var line  tp_line      = na
+var line  entry_line   = na
+
+get_levels_long(ep) =>
+    sl = ep - atr * i_atrMult_SL
+    tp1 = ep + (ep - sl) * i_partialTP_r
+    tp2 = ep + (ep - sl) * i_rrRatio
+    [sl, tp1, tp2]
+
+get_levels_short(ep) =>
+    sl = ep + atr * i_atrMult_SL
+    tp1 = ep - (sl - ep) * i_partialTP_r
+    tp2 = ep - (sl - ep) * i_rrRatio
+    [sl, tp1, tp2]
+
+if long_signal and strategy.position_size == 0
+    ep  = close
+    [sl, tp1, tp2] = get_levels_long(ep)
+    rr_check = (tp2 - ep) / (ep - sl)
+    if rr_check >= i_minRR
+        qty = calc_qty(ep - sl)
+        strategy.entry("Long", strategy.long, qty=qty, comment="PMCS Long")
+        entry_price  := ep
+        sl_price     := sl
+        tp1_price    := tp1
+        tp2_price    := tp2
+        partial_done := false
+        be_done      := false
+
+if short_signal and strategy.position_size == 0
+    ep  = close
+    [sl, tp1, tp2] = get_levels_short(ep)
+    rr_check = (ep - tp2) / (sl - ep)
+    if rr_check >= i_minRR
+        qty = calc_qty(sl - ep)
+        strategy.entry("Short", strategy.short, qty=qty, comment="PMCS Short")
+        entry_price  := ep
+        sl_price     := sl
+        tp1_price    := tp1
+        tp2_price    := tp2
+        partial_done := false
+        be_done      := false
+
+if strategy.position_size > 0
+    strategy.exit("SL Long", "Long", stop=sl_price, comment="SL")
+if strategy.position_size < 0
+    strategy.exit("SL Short", "Short", stop=sl_price, comment="SL")
+
+if i_partialTP_en and not partial_done and not na(entry_price)
+    if strategy.position_size > 0 and high >= tp1_price
+        qty_close = math.abs(strategy.position_size) * i_partialTP_pct / 100
+        strategy.close("Long", qty=qty_close, comment="Partial TP")
+        partial_done := true
+    if strategy.position_size < 0 and low <= tp1_price
+        qty_close = math.abs(strategy.position_size) * i_partialTP_pct / 100
+        strategy.close("Short", qty=qty_close, comment="Partial TP")
+        partial_done := true
+
+if i_be_en and not be_done and not na(entry_price)
+    be_trigger_long  = entry_price + (entry_price - sl_price) * i_be_r
+    be_trigger_short = entry_price - (sl_price - entry_price) * i_be_r
+    if strategy.position_size > 0 and high >= be_trigger_long
+        sl_price := entry_price
+        be_done  := true
+    if strategy.position_size < 0 and low <= be_trigger_short
+        sl_price := entry_price
+        be_done  := true
+
+if i_trail_en and strategy.position_size != 0
+    trail_dist = atr * i_trail_atr
+    if strategy.position_size > 0
+        trail_sl = high - trail_dist
+        sl_price := math.max(sl_price, trail_sl)
+    if strategy.position_size < 0
+        trail_sl = low + trail_dist
+        sl_price := math.min(sl_price, trail_sl)
+
+if strategy.position_size > 0 and high >= tp2_price
+    strategy.close("Long", comment="Full TP")
+if strategy.position_size < 0 and low <= tp2_price
+    strategy.close("Short", comment="Full TP")
+
+if i_time_exit_en and strategy.position_size != 0
+    if hour == i_time_exit_h and minute >= i_time_exit_m
+        strategy.close_all(comment="Time Exit")
+
+if i_oppsig_exit
+    if strategy.position_size > 0 and short_signal
+        strategy.close("Long", comment="Opp Signal")
+    if strategy.position_size < 0 and long_signal
+        strategy.close("Short", comment="Opp Signal")
+
+if i_rev_exit
+    if strategy.position_size > 0 and bear_ema_stack
+        strategy.close("Long", comment="Trend Rev")
+    if strategy.position_size < 0 and bull_ema_stack
+        strategy.close("Short", comment="Trend Rev")
+
+// ============================================================================
+// ▸ SECTION 7: CONSECUTIVE LOSS TRACKING
+// ============================================================================
+
+var float prev_closed_profit = strategy.netprofit
+
+if strategy.closedtrades > strategy.closedtrades[1]
+    last_trade_pnl = strategy.netprofit - prev_closed_profit
+    if last_trade_pnl < 0
+        consec_losses += 1
+    else
+        consec_losses := 0
+    prev_closed_profit := strategy.netprofit
+
+// ============================================================================
+// ▸ SECTION 8: VISUALIZATION
+// ============================================================================
+
+plot(i_show_ema ? ema_fast : na, "EMA Fast", color=color.new(color.lime,   0), linewidth=1)
+plot(i_show_ema ? ema_mid  : na, "EMA Mid",  color=color.new(color.orange, 0), linewidth=1)
+plot(i_show_ema ? ema_slow : na, "EMA Slow", color=color.new(color.red,    0), linewidth=2)
+
+plot(i_show_vwap ? vwap_val : na, "VWAP", color=color.new(color.purple, 0), linewidth=1, style=plot.style_circles)
+
+bar_col = trend_bull ? color.new(color.teal, 70) :
+          trend_bear ? color.new(color.red,  70) :
+          color.new(color.gray, 80)
+barcolor(bar_col)
+
+if i_show_labels
+    if long_signal and strategy.position_size[1] == 0
+        label.new(bar_index, low - atr, "▲ LONG",
+             style=label.style_label_up, color=color.teal,
+             textcolor=color.white, size=size.small)
+    if short_signal and strategy.position_size[1] == 0
+        label.new(bar_index, high + atr, "▼ SHORT",
+             style=label.style_label_down, color=color.red,
+             textcolor=color.white, size=size.small)
+
+if i_show_sltp and strategy.position_size != 0
+    line.delete(sl_line)
+    line.delete(tp_line)
+    line.delete(entry_line)
+    sl_line    := line.new(bar_index - 3, sl_price,   bar_index, sl_price,   color=color.red,   width=2, style=line.style_dashed)
+    tp_line    := line.new(bar_index - 3, tp2_price,  bar_index, tp2_price,  color=color.green, width=2, style=line.style_dashed)
+    entry_line := line.new(bar_index - 3, entry_price,bar_index, entry_price,color=color.white, width=1, style=line.style_dotted)
+
+if i_show_dash
+    total_trades  = strategy.closedtrades
+    wins          = strategy.wintrades
+    losses        = strategy.losstrades
+    win_rate      = total_trades > 0 ? wins / total_trades * 100 : 0.0
+    gross_profit  = strategy.grossprofit
+    gross_loss    = math.abs(strategy.grossloss)
+    pf            = gross_loss > 0 ? gross_profit / gross_loss : na
+    net_profit    = strategy.netprofit
+    pos_txt       = strategy.position_size > 0 ? "LONG  " :
+                    strategy.position_size < 0 ? "SHORT " : "FLAT  "
+    trend_txt     = trend_bull ? "BULL" : trend_bear ? "BEAR" : "RANGE"
+
+    dash_pos_map  = switch i_dash_pos
+        "Top Left"      => position.top_left
+        "Bottom Right"  => position.bottom_right
+        "Bottom Left"   => position.bottom_left
+        =>                 position.top_right
+
+    var table dash = table.new(dash_pos_map, 2, 9,
+         bgcolor     = color.new(color.black, 20),
+         border_color= color.new(color.gray,  50),
+         border_width = 1,
+         frame_color  = color.new(color.gray, 20),
+         frame_width  = 1)
+
+    dash_cell(r, label_txt, value_txt, val_col) =>
+        table.cell(dash, 0, r, label_txt, text_color=color.new(color.silver,0), text_size=size.small, bgcolor=color.new(color.black,30))
+        table.cell(dash, 1, r, value_txt, text_color=val_col,                   text_size=size.small, bgcolor=color.new(color.black,30))
+
+    table.cell(dash, 0, 0, "PMCS v2.0", text_color=color.white, text_size=size.normal, bgcolor=color.new(color.navy,10))
+    table.merge_cells(dash, 0, 0, 1, 0)
+
+    dash_cell(1, "Trend",       trend_txt,                         trend_bull ? color.teal : trend_bear ? color.red : color.gray)
+    dash_cell(2, "Position",    pos_txt,                           strategy.position_size > 0 ? color.teal : strategy.position_size < 0 ? color.red : color.silver)
+    dash_cell(3, "Win Rate",    str.tostring(win_rate, "#.##") + "%", win_rate >= 50 ? color.teal : color.red)
+    dash_cell(4, "Total Trades",str.tostring(total_trades),        color.silver)
+    dash_cell(5, "Profit Factor",not na(pf) ? str.tostring(pf, "#.##") : "N/A", not na(pf) and pf >= 1.5 ? color.teal : color.red)
+    dash_cell(6, "Net Profit",  str.tostring(net_profit, "#.##"),  net_profit >= 0 ? color.teal : color.red)
+    dash_cell(7, "Consec Loss", str.tostring(consec_losses),       consec_losses >= i_maxConsecLoss - 1 ? color.orange : color.silver)
+    dash_cell(8, "Daily Loss",  str.tostring(daily_loss_pct, "#.##") + "%", daily_loss_pct >= i_maxDailyLoss * 0.8 ? color.orange : color.silver)
+
+// ============================================================================
+// ▸ SECTION 9: ALERTS
+// ============================================================================
+
+alert_format(action, dir, ep, sl, tp) =>
+    if i_webhook_msg
+        '{"action":"' + action + '","direction":"' + dir +
+        '","symbol":"' + syminfo.ticker + '","timeframe":"' + timeframe.period +
+        '","price":' + str.tostring(ep) +
+        ',"sl":' + str.tostring(sl) +
+        ',"tp":' + str.tostring(tp) + '}'
+    else
+        action + " " + dir + " | " + syminfo.ticker + " " + timeframe.period +
+        " | Entry: " + str.tostring(ep) +
+        " | SL: " + str.tostring(sl) +
+        " | TP: " + str.tostring(tp)
+
+if i_alert_entry and long_signal and strategy.position_size[1] == 0
+    alert(alert_format("ENTRY", "LONG", close, sl_price, tp2_price), alert.freq_once_per_bar_close)
+
+if i_alert_entry and short_signal and strategy.position_size[1] == 0
+    alert(alert_format("ENTRY", "SHORT", close, sl_price, tp2_price), alert.freq_once_per_bar_close)
+
+if i_alert_exit
+    if strategy.position_size[1] > 0 and strategy.position_size == 0
+        alert(alert_format("EXIT", "LONG", close, na, na), alert.freq_once_per_bar_close)
+    if strategy.position_size[1] < 0 and strategy.position_size == 0
+        alert(alert_format("EXIT", "SHORT", close, na, na), alert.freq_once_per_bar_close)
