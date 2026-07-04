@@ -22,71 +22,71 @@ strategy(
  )
 
 // ============================================================================
-// â–¸ SECTION 1: INPUTS
+// ▸ SECTION 1: INPUTS
 // ============================================================================
 
-// â”€â”€ Strategy Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-var GRP_STRAT = "âš™ï¸ Strategy Settings"
+// ── Strategy Settings ───────────────────────────────────────────────────────
+var GRP_STRAT = "⚙️ Strategy Settings"
 i_tradeDir      = input.string("Both", "Trade Direction", options=["Long Only","Short Only","Both"], group=GRP_STRAT)
 i_maxOpenTrades = input.int(1,    "Max Open Trades",          minval=1, maxval=5,   group=GRP_STRAT)
 i_commission    = input.float(0.05,"Commission (%)",          minval=0, step=0.01,  group=GRP_STRAT)
 i_slippage      = input.int(2,    "Slippage (ticks)",         minval=0,             group=GRP_STRAT)
 
-// â”€â”€ Risk Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-var GRP_RISK = "ðŸ›¡ï¸ Risk Management"
+// ── Risk Management ─────────────────────────────────────────────────────────
+var GRP_RISK = "🛡️ Risk Management"
 i_sizingMode    = input.string("Equity %", "Position Sizing", options=["Fixed Lots","Equity %","Cash Risk","Fixed Cash"], group=GRP_RISK)
 i_riskPct       = input.float(1.0,  "Risk per Trade (%)",    minval=0.1, maxval=10, step=0.1, group=GRP_RISK)
 i_fixedLots     = input.float(0.1,  "Fixed Lot Size",        minval=0.01, step=0.01, group=GRP_RISK)
 i_fixedCash     = input.float(100,  "Fixed Cash Risk ($)",   minval=1,   group=GRP_RISK)
-i_atrMult_SL    = input.float(1.5,  "ATR Multiplier â€” Stop Loss",    minval=0.5, step=0.1, group=GRP_RISK)
+i_atrMult_SL    = input.float(1.5,  "ATR Multiplier — Stop Loss",    minval=0.5, step=0.1, group=GRP_RISK)
 i_rrRatio       = input.float(2.0,  "Risk:Reward Ratio",     minval=0.5, step=0.1, group=GRP_RISK)
 i_partialTP_en  = input.bool(true,  "Enable Partial Take Profit",    group=GRP_RISK)
-i_partialTP_pct = input.float(50.0, "Partial TP â€” Close % of Position", minval=10, maxval=90, step=5, group=GRP_RISK)
-i_partialTP_r   = input.float(1.0,  "Partial TP â€” at R multiple",   minval=0.5, step=0.1, group=GRP_RISK)
+i_partialTP_pct = input.float(50.0, "Partial TP — Close % of Position", minval=10, maxval=90, step=5, group=GRP_RISK)
+i_partialTP_r   = input.float(1.0,  "Partial TP — at R multiple",   minval=0.5, step=0.1, group=GRP_RISK)
 i_be_en         = input.bool(true,  "Enable Break-Even Stop",        group=GRP_RISK)
 i_be_r          = input.float(1.0,  "Move to B/E after R multiple",  minval=0.5, step=0.1, group=GRP_RISK)
 i_trail_en      = input.bool(false, "Enable Trailing Stop",          group=GRP_RISK)
 i_trail_atr     = input.float(1.0,  "Trailing Stop ATR Multiplier",  minval=0.1, step=0.1, group=GRP_RISK)
 i_maxDailyLoss  = input.float(3.0,  "Max Daily Loss (% of Equity)",  minval=0.1, step=0.1, group=GRP_RISK)
 i_maxConsecLoss = input.int(3,      "Max Consecutive Losses",        minval=1, maxval=20,  group=GRP_RISK)
-i_minRR         = input.float(1.5,  "Minimum R:R to Enter Trade",    minval=0.1, step=0.1, group=GRP_RISK)
+i_minRR         = input.float(1.0,  "Minimum R:R to Enter Trade",    minval=0.1, step=0.1, group=GRP_RISK)
 
-// â”€â”€ Trend & EMA Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-var GRP_TREND = "ðŸ“ˆ Trend Filters"
+// ── Trend & EMA Settings ────────────────────────────────────────────────────
+var GRP_TREND = "📈 Trend Filters"
 i_ema_fast      = input.int(21,   "Fast EMA Period",    minval=1,   group=GRP_TREND)
 i_ema_mid       = input.int(50,   "Mid EMA Period",     minval=1,   group=GRP_TREND)
 i_ema_slow      = input.int(200,  "Slow EMA Period",    minval=1,   group=GRP_TREND)
-i_adx_en        = input.bool(true,  "Enable ADX Filter",            group=GRP_TREND)
+i_adx_en        = input.bool(false, "Enable ADX Filter",            group=GRP_TREND)
 i_adx_len       = input.int(14,   "ADX Length",         minval=1,   group=GRP_TREND)
 i_adx_min       = input.float(20, "Min ADX (Trend Strength)",       group=GRP_TREND)
-i_htf_en        = input.bool(true, "Enable Higher Timeframe Filter", group=GRP_TREND)
+i_htf_en        = input.bool(false, "Enable Higher Timeframe Filter", group=GRP_TREND)
 i_htf_tf        = input.timeframe("D","HTF Timeframe",               group=GRP_TREND)
 i_htf_ema       = input.int(50,   "HTF EMA Period",     minval=1,   group=GRP_TREND)
 
-// â”€â”€ Entry Filters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-var GRP_ENTRY = "ðŸŽ¯ Entry Filters"
-i_rsi_en        = input.bool(true,  "Enable RSI Filter",             group=GRP_ENTRY)
+// ── Entry Filters ───────────────────────────────────────────────────────────
+var GRP_ENTRY = "🎯 Entry Filters"
+i_rsi_en        = input.bool(false,  "Enable RSI Filter",             group=GRP_ENTRY)
 i_rsi_len       = input.int(14,   "RSI Length",          minval=1,   group=GRP_ENTRY)
 i_rsi_ob        = input.float(70, "RSI Overbought",                  group=GRP_ENTRY)
 i_rsi_os        = input.float(30, "RSI Oversold",                    group=GRP_ENTRY)
-i_macd_en       = input.bool(true,  "Enable MACD Filter",            group=GRP_ENTRY)
+i_macd_en       = input.bool(false,  "Enable MACD Filter",            group=GRP_ENTRY)
 i_macd_fast     = input.int(12,   "MACD Fast",           minval=1,   group=GRP_ENTRY)
 i_macd_slow     = input.int(26,   "MACD Slow",           minval=1,   group=GRP_ENTRY)
 i_macd_sig      = input.int(9,    "MACD Signal",         minval=1,   group=GRP_ENTRY)
-i_vwap_en       = input.bool(true,  "Enable VWAP Filter",            group=GRP_ENTRY)
-i_vol_en        = input.bool(true,  "Enable Volume Filter",          group=GRP_ENTRY)
-i_vol_mult      = input.float(1.2, "Volume > X Ã— SMA(20)",          group=GRP_ENTRY)
-i_atr_vol_en    = input.bool(true,  "Enable ATR Volatility Filter",  group=GRP_ENTRY)
+i_vwap_en       = input.bool(false,  "Enable VWAP Filter",            group=GRP_ENTRY)
+i_vol_en        = input.bool(false,  "Enable Volume Filter",          group=GRP_ENTRY)
+i_vol_mult      = input.float(1.2, "Volume > X × SMA(20)",          group=GRP_ENTRY)
+i_atr_vol_en    = input.bool(false,  "Enable ATR Volatility Filter",  group=GRP_ENTRY)
 i_atr_len       = input.int(14,   "ATR Length",          minval=1,   group=GRP_ENTRY)
 i_atr_min_mult  = input.float(0.5, "Min ATR Multiplier (vs SMA)",   group=GRP_ENTRY)
-i_bos_en        = input.bool(true,  "Enable Break-of-Structure (BOS)",group=GRP_ENTRY)
+i_bos_en        = input.bool(false, "Enable Break-of-Structure (BOS)",group=GRP_ENTRY)
 i_bos_len       = input.int(10,   "BOS Swing Length",    minval=2,   group=GRP_ENTRY)
-i_sr_en         = input.bool(true,  "Enable S/R Proximity Filter",   group=GRP_ENTRY)
+i_sr_en         = input.bool(false, "Enable S/R Proximity Filter",   group=GRP_ENTRY)
 i_sr_len        = input.int(20,   "S/R Lookback",        minval=5,   group=GRP_ENTRY)
 i_sr_atr_dist   = input.float(0.5, "Max Distance to S/R (ATR)",     group=GRP_ENTRY)
 
-// â”€â”€ Session Filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-var GRP_SESSION = "ðŸ• Session & Timing"
+// ── Session Filter ──────────────────────────────────────────────────────────
+var GRP_SESSION = "🕐 Session & Timing"
 i_sess_en       = input.bool(false, "Enable Session Filter",         group=GRP_SESSION)
 i_sess_1        = input.session("0700-1600", "Session 1 (Exchange TZ)", group=GRP_SESSION)
 i_sess_2        = input.session("1300-2200", "Session 2 (Exchange TZ)", group=GRP_SESSION)
@@ -94,13 +94,13 @@ i_time_exit_en  = input.bool(false, "Enable Time-Based Exit",        group=GRP_S
 i_time_exit_h   = input.int(23,   "Exit Hour (Exchange TZ)", minval=0, maxval=23, group=GRP_SESSION)
 i_time_exit_m   = input.int(0,    "Exit Minute",             minval=0, maxval=59, group=GRP_SESSION)
 
-// â”€â”€ Exit Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-var GRP_EXIT = "ðŸšª Exit Settings"
+// ── Exit Settings ───────────────────────────────────────────────────────────
+var GRP_EXIT = "🚪 Exit Settings"
 i_oppsig_exit   = input.bool(true,  "Exit on Opposite Signal",       group=GRP_EXIT)
 i_rev_exit      = input.bool(true,  "Exit on Trend Reversal",        group=GRP_EXIT)
 
-// â”€â”€ Visualization â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-var GRP_VIZ = "ðŸŽ¨ Visualization"
+// ── Visualization ───────────────────────────────────────────────────────────
+var GRP_VIZ = "🎨 Visualization"
 i_show_ema      = input.bool(true,  "Show EMAs",                     group=GRP_VIZ)
 i_show_vwap     = input.bool(true,  "Show VWAP",                     group=GRP_VIZ)
 i_show_labels   = input.bool(true,  "Show Entry Labels",             group=GRP_VIZ)
@@ -108,22 +108,22 @@ i_show_sltp     = input.bool(true,  "Show SL/TP Lines",              group=GRP_V
 i_show_dash     = input.bool(true,  "Show Dashboard",                group=GRP_VIZ)
 i_dash_pos      = input.string("Top Right","Dashboard Position", options=["Top Right","Top Left","Bottom Right","Bottom Left"], group=GRP_VIZ)
 
-// â”€â”€ Alerts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-var GRP_ALERTS = "ðŸ”” Alerts"
+// ── Alerts ──────────────────────────────────────────────────────────────────
+var GRP_ALERTS = "🔔 Alerts"
 i_alert_entry   = input.bool(true,  "Alert on Entry",                group=GRP_ALERTS)
 i_alert_exit    = input.bool(true,  "Alert on Exit",                 group=GRP_ALERTS)
 i_alert_sltp    = input.bool(true,  "Alert on SL/TP Hit",           group=GRP_ALERTS)
 i_webhook_msg   = input.bool(false, "Use Webhook-Compatible Format", group=GRP_ALERTS)
 
 // ============================================================================
-// â–¸ SECTION 2: CORE CALCULATIONS
+// ▸ SECTION 2: CORE CALCULATIONS
 // ============================================================================
 
-// â”€â”€ ATR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── ATR ─────────────────────────────────────────────────────────────────────
 atr = ta.atr(i_atr_len)
 atr_sma = ta.sma(atr, 50)
 
-// â”€â”€ EMAs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── EMAs ─────────────────────────────────────────────────────────────────────
 ema_fast = ta.ema(close, i_ema_fast)
 ema_mid  = ta.ema(close, i_ema_mid)
 ema_slow = ta.ema(close, i_ema_slow)
@@ -131,18 +131,18 @@ ema_slow = ta.ema(close, i_ema_slow)
 bull_ema_stack = ema_fast > ema_mid and ema_mid > ema_slow
 bear_ema_stack = ema_fast < ema_mid and ema_mid < ema_slow
 
-// â”€â”€ VWAP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── VWAP ─────────────────────────────────────────────────────────────────────
 vwap_val = ta.vwap(hlc3)
 
-// â”€â”€ RSI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── RSI ──────────────────────────────────────────────────────────────────────
 rsi = ta.rsi(close, i_rsi_len)
 
-// â”€â”€ MACD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── MACD ─────────────────────────────────────────────────────────────────────
 [macd_line, macd_sig_line, macd_hist] = ta.macd(close, i_macd_fast, i_macd_slow, i_macd_sig)
 macd_bull = macd_line > macd_sig_line and macd_hist > 0
 macd_bear = macd_line < macd_sig_line and macd_hist < 0
 
-// â”€â”€ ADX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── ADX ──────────────────────────────────────────────────────────────────────
 adx_func(len) =>
     up   = ta.change(high)
     down = -ta.change(low)
@@ -159,20 +159,20 @@ adx_trending = adx_val >= i_adx_min
 adx_bull     = adx_plus  > adx_minus
 adx_bear     = adx_minus > adx_plus
 
-// â”€â”€ Higher Timeframe Trend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Higher Timeframe Trend ───────────────────────────────────────────────────
 htf_close = request.security(syminfo.tickerid, i_htf_tf, close, lookahead=barmerge.lookahead_off)
 htf_ema   = request.security(syminfo.tickerid, i_htf_tf, ta.ema(close, i_htf_ema), lookahead=barmerge.lookahead_off)
 htf_bull  = htf_close > htf_ema
 htf_bear  = htf_close < htf_ema
 
-// â”€â”€ Volume â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Volume ───────────────────────────────────────────────────────────────────
 vol_sma    = ta.sma(volume, 20)
 vol_strong = volume > vol_sma * i_vol_mult
 
-// â”€â”€ ATR Volatility â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── ATR Volatility ───────────────────────────────────────────────────────────
 atr_ok = atr > atr_sma * i_atr_min_mult
 
-// â”€â”€ Break of Structure â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Break of Structure ───────────────────────────────────────────────────────
 swing_high = ta.pivothigh(high, i_bos_len, i_bos_len)
 swing_low  = ta.pivotlow(low,   i_bos_len, i_bos_len)
 
@@ -187,22 +187,22 @@ if not na(swing_low)
 bos_bull = not na(last_swing_high) and close > last_swing_high[i_bos_len]
 bos_bear = not na(last_swing_low)  and close < last_swing_low[i_bos_len]
 
-// â”€â”€ Support & Resistance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Support & Resistance ─────────────────────────────────────────────────────
 sr_high = ta.highest(high, i_sr_len)
 sr_low  = ta.lowest(low,   i_sr_len)
 near_support    = math.abs(close - sr_low)  < atr * i_sr_atr_dist
 near_resistance = math.abs(close - sr_high) < atr * i_sr_atr_dist
 
-// â”€â”€ Session Filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Session Filter ───────────────────────────────────────────────────────────
 in_session = not i_sess_en or
              (time(timeframe.period, i_sess_1) != 0 or time(timeframe.period, i_sess_2) != 0)
 
-// â”€â”€ Trend State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Trend State ──────────────────────────────────────────────────────────────
 trend_bull = bull_ema_stack and (not i_htf_en or htf_bull) and (not i_adx_en or (adx_trending and adx_bull))
 trend_bear = bear_ema_stack and (not i_htf_en or htf_bear) and (not i_adx_en or (adx_trending and adx_bear))
 
 // ============================================================================
-// â–¸ SECTION 3: RISK STATE TRACKING
+// ▸ SECTION 3: RISK STATE TRACKING
 // ============================================================================
 
 var int   consec_losses   = 0
@@ -220,7 +220,7 @@ daily_loss_pct := day_start_eq > 0 ? (day_start_eq - strategy.equity) / day_star
 risk_ok = daily_loss_pct < i_maxDailyLoss and consec_losses < i_maxConsecLoss
 
 // ============================================================================
-// â–¸ SECTION 4: POSITION SIZE CALCULATION
+// ▸ SECTION 4: POSITION SIZE CALCULATION
 // ============================================================================
 
 calc_qty(sl_dist) =>
@@ -234,7 +234,7 @@ calc_qty(sl_dist) =>
     math.max(qty, syminfo.mintick)
 
 // ============================================================================
-// â–¸ SECTION 5: ENTRY CONDITIONS
+// ▸ SECTION 5: ENTRY CONDITIONS
 // ============================================================================
 
 rsi_long_ok  = not i_rsi_en  or (rsi > i_rsi_os and rsi < i_rsi_ob)
@@ -289,7 +289,7 @@ long_signal  = long_confluence  and can_long  and risk_ok and strategy.opentrade
 short_signal = short_confluence and can_short and risk_ok and strategy.opentrades < i_maxOpenTrades
 
 // ============================================================================
-// â–¸ SECTION 6: STOP LOSS, TAKE PROFIT & POSITION MANAGEMENT
+// ▸ SECTION 6: STOP LOSS, TAKE PROFIT & POSITION MANAGEMENT
 // ============================================================================
 
 var float entry_price  = na
@@ -299,8 +299,13 @@ var float tp2_price    = na
 var bool  partial_done = false
 var bool  be_done      = false
 var line  sl_line      = na
+var line  tp1_line     = na
 var line  tp_line      = na
 var line  entry_line   = na
+var label lbl_entry    = na
+var label lbl_sl       = na
+var label lbl_tp1      = na
+var label lbl_tp2      = na
 
 get_levels_long(ep) =>
     sl = ep - atr * i_atrMult_SL
@@ -398,7 +403,7 @@ if i_rev_exit
         strategy.close("Short", comment="Trend Rev")
 
 // ============================================================================
-// â–¸ SECTION 7: CONSECUTIVE LOSS TRACKING
+// ▸ SECTION 7: CONSECUTIVE LOSS TRACKING
 // ============================================================================
 
 var float prev_closed_profit = strategy.netprofit
@@ -412,7 +417,7 @@ if strategy.closedtrades > strategy.closedtrades[1]
     prev_closed_profit := strategy.netprofit
 
 // ============================================================================
-// â–¸ SECTION 8: VISUALIZATION
+// ▸ SECTION 8: VISUALIZATION
 // ============================================================================
 
 plot(i_show_ema ? ema_fast : na, "EMA Fast", color=color.new(color.lime,   0), linewidth=1)
@@ -426,21 +431,46 @@ barcolor(bar_col)
 
 if i_show_labels
     if long_signal and strategy.position_size[1] == 0
-        label.new(bar_index, low - atr, "â–² LONG",
+        label.new(bar_index, low - atr, "▲ LONG",
              style=label.style_label_up, color=color.teal,
              textcolor=color.white, size=size.small)
     if short_signal and strategy.position_size[1] == 0
-        label.new(bar_index, high + atr, "â–¼ SHORT",
+        label.new(bar_index, high + atr, "▼ SHORT",
              style=label.style_label_down, color=color.red,
              textcolor=color.white, size=size.small)
 
-if i_show_sltp and strategy.position_size != 0
-    line.delete(sl_line)
-    line.delete(tp_line)
+// ── Entry / SL / TP Level Plots (visible across chart during active trades) ──
+_in_trade = strategy.position_size != 0
+plot(_in_trade and i_show_sltp ? entry_price : na, "Entry Level",   color=color.white,  linewidth=1, style=plot.style_linebr)
+plot(_in_trade and i_show_sltp ? sl_price    : na, "Stop Loss",     color=color.red,    linewidth=2, style=plot.style_linebr)
+plot(_in_trade and i_show_sltp ? tp1_price   : na, "Take Profit 1", color=color.orange, linewidth=1, style=plot.style_linebr)
+plot(_in_trade and i_show_sltp ? tp2_price   : na, "Take Profit 2", color=color.lime,   linewidth=2, style=plot.style_linebr)
+
+// ── Right-edge lines + labels (drawn only on last bar) ───────────────────────
+if i_show_sltp and barstate.islast
     line.delete(entry_line)
-    sl_line    := line.new(bar_index - 3, sl_price,   bar_index, sl_price,   color=color.red,   width=2, style=line.style_dashed)
-    tp_line    := line.new(bar_index - 3, tp2_price,  bar_index, tp2_price,  color=color.green, width=2, style=line.style_dashed)
-    entry_line := line.new(bar_index - 3, entry_price,bar_index, entry_price,color=color.white, width=1, style=line.style_dotted)
+    line.delete(sl_line)
+    line.delete(tp1_line)
+    line.delete(tp_line)
+    label.delete(lbl_entry)
+    label.delete(lbl_sl)
+    label.delete(lbl_tp1)
+    label.delete(lbl_tp2)
+    _psl  = _in_trade ? sl_price    : close - atr * i_atrMult_SL
+    _ptp1 = _in_trade ? tp1_price   : close + (close - _psl) * i_partialTP_r
+    _ptp2 = _in_trade ? tp2_price   : close + (close - _psl) * i_rrRatio
+    _pep  = _in_trade ? entry_price : close
+    _lw   = _in_trade ? 2 : 1
+    _sty  = _in_trade ? line.style_dashed : line.style_dotted
+    _t    = _in_trade ? 0 : 60
+    entry_line := line.new(bar_index, _pep,  bar_index + 1, _pep,  color=color.new(color.white,  _t), width=_lw, style=_sty, extend=extend.right)
+    sl_line    := line.new(bar_index, _psl,  bar_index + 1, _psl,  color=color.new(color.red,    _t), width=_lw, style=_sty, extend=extend.right)
+    tp1_line   := line.new(bar_index, _ptp1, bar_index + 1, _ptp1, color=color.new(color.orange, _t), width=_lw, style=_sty, extend=extend.right)
+    tp_line    := line.new(bar_index, _ptp2, bar_index + 1, _ptp2, color=color.new(color.lime,   _t), width=_lw, style=_sty, extend=extend.right)
+    lbl_entry  := label.new(bar_index, _pep,  "Entry " + str.tostring(_pep,  "#.##"), style=label.style_label_left, color=color.new(color.white,  80), textcolor=color.new(color.white,  _t), size=size.small)
+    lbl_sl     := label.new(bar_index, _psl,  "SL "   + str.tostring(_psl,  "#.##"),  style=label.style_label_left, color=color.new(color.red,    80), textcolor=color.new(color.red,    _t), size=size.small)
+    lbl_tp1    := label.new(bar_index, _ptp1, "TP1 "  + str.tostring(_ptp1, "#.##"),  style=label.style_label_left, color=color.new(color.orange, 80), textcolor=color.new(color.orange, _t), size=size.small)
+    lbl_tp2    := label.new(bar_index, _ptp2, "TP2 "  + str.tostring(_ptp2, "#.##"),  style=label.style_label_left, color=color.new(color.lime,   80), textcolor=color.new(color.lime,   _t), size=size.small)
 
 var table dash = na
 
@@ -487,7 +517,7 @@ if i_show_dash
     dash_cell(dash, 8, "Daily Loss",   str.tostring(daily_loss_pct, "#.##") + "%", daily_loss_pct >= i_maxDailyLoss * 0.8 ? color.orange : color.silver)
 
 // ============================================================================
-// â–¸ SECTION 9: ALERTS
+// ▸ SECTION 9: ALERTS
 // ============================================================================
 
 alert_format(action, dir, float ep, float sl, float tp) =>
