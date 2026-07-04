@@ -1,0 +1,59 @@
+//@version=6
+strategy("Pro Multi-Confluence Strategy v2.0", shorttitle="PMCS v2.0", overlay=true, pyramiding=0, default_qty_type=strategy.percent_of_equity, default_qty_value=1, initial_capital=100000, commission_type=strategy.commission.percent, commission_value=0.05, slippage=2)
+
+i_show_sltp = input.bool(true, "Show SL/TP Lines")
+
+ema_fast = ta.ema(close, 21)
+ema_mid  = ta.ema(close, 50)
+ema_slow = ta.ema(close, 200)
+atr      = ta.atr(14)
+
+bull_ema = ema_fast > ema_mid and ema_mid > ema_slow
+bear_ema = ema_fast < ema_mid and ema_mid < ema_slow
+
+// Only enter when ATR is valid (avoids na SL/TP on early bars)
+long_signal  = bull_ema and strategy.position_size == 0 and not na(atr)
+short_signal = bear_ema and strategy.position_size == 0 and not na(atr)
+
+L_sl  = close - atr * 1.5
+L_tp1 = close + (close - L_sl) * 1.0
+L_tp2 = close + (close - L_sl) * 2.0
+S_sl  = close + atr * 1.5
+S_tp1 = close - (S_sl - close) * 1.0
+S_tp2 = close - (S_sl - close) * 2.0
+
+var float entry_price = na
+var float sl_price    = na
+var float tp1_price   = na
+var float tp2_price   = na
+
+if long_signal
+    strategy.entry("Long", strategy.long)
+    entry_price := close
+    sl_price    := L_sl
+    tp1_price   := L_tp1
+    tp2_price   := L_tp2
+
+if short_signal
+    strategy.entry("Short", strategy.short)
+    entry_price := close
+    sl_price    := S_sl
+    tp1_price   := S_tp1
+    tp2_price   := S_tp2
+
+// Guard exits so stop/limit are never both na
+if strategy.position_size > 0 and not na(sl_price)
+    strategy.exit("SL Long", "Long", stop=sl_price, limit=tp2_price)
+
+if strategy.position_size < 0 and not na(sl_price)
+    strategy.exit("SL Short", "Short", stop=sl_price, limit=tp2_price)
+
+plot(ema_fast, "EMA 21", color=color.lime, linewidth=1)
+plot(ema_mid,  "EMA 50",  color=color.orange, linewidth=1)
+plot(ema_slow, "EMA 200", color=color.red, linewidth=2)
+
+_in_trade = strategy.position_size != 0
+plot(_in_trade and i_show_sltp ? entry_price : na, "Entry", color=color.white,  linewidth=1, style=plot.style_linebr)
+plot(_in_trade and i_show_sltp ? sl_price    : na, "SL",    color=color.red,    linewidth=2, style=plot.style_linebr)
+plot(_in_trade and i_show_sltp ? tp1_price   : na, "TP1",   color=color.orange, linewidth=1, style=plot.style_linebr)
+plot(_in_trade and i_show_sltp ? tp2_price   : na, "TP2",   color=color.lime,   linewidth=2, style=plot.style_linebr)
